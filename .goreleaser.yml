@@ -27,9 +27,9 @@ checksum:
 brews:
   - name: brico
     repository:
-      owner: ludivinero
+      owner: PETITJEAN-SAS
       name: homebrew-tap
     directory: Formula
-    homepage: https://github.com/ludivinerobert/brico-cli
+    homepage: https://github.com/PETITJEAN-SAS/brico-cli
     description: CLI Brico
     license: MIT
