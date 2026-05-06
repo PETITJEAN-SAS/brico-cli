@@ -1,0 +1,35 @@
+version: 2
+
+project_name: brico
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: brico
+    main: .
+    binary: brico
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats:
+      - tar.gz
+
+checksum:
+  name_template: checksums.txt
+
+brews:
+  - name: brico
+    repository:
+      owner: ludivinero
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://github.com/ludivinerobert/brico-cli
+    description: CLI Brico
+    license: MIT
