@@ -12,11 +12,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 )
 
-const version = "0.1.0"
+const version = "0.1.2"
 
 type Config struct {
 	BaseURL string `json:"base_url"`
@@ -38,12 +39,15 @@ type AgentError struct {
 
 func main() {
 	if len(os.Args) < 2 {
+		fmt.Println("Aucune commande fournie. Lance `brico help` pour voir les commandes disponibles.")
 		usage()
-		os.Exit(1)
+		return
 	}
 
 	var err error
 	switch os.Args[1] {
+	case "help":
+		err = help(os.Args[2:])
 	case "version":
 		fmt.Println(version)
 	case "login":
@@ -71,6 +75,7 @@ func usage() {
 	fmt.Println(`brico CLI
 
 Commandes:
+  brico help
   brico login --base-url http://localhost:8000 [--source brico-cli]
   brico logout
   brico whoami
@@ -78,6 +83,30 @@ Commandes:
   brico call client.search --json '{"query":"dupont"}'
   brico call article.search --json '{"query":"courroie"}'
   brico version`)
+
+	toolNames, err := listToolNames()
+	if err != nil {
+		fmt.Printf("\nTools disponibles: connecte-toi d'abord (`brico login --base-url ...`), puis lance `brico tools`.\n")
+		return
+	}
+
+	if len(toolNames) == 0 {
+		fmt.Println("\nTools disponibles: aucune tool exposée pour ce compte.")
+		return
+	}
+
+	fmt.Println("\nTools disponibles:")
+	for _, name := range toolNames {
+		fmt.Printf("  - %s\n", name)
+	}
+}
+
+func help(args []string) error {
+	if len(args) > 0 {
+		return errors.New("usage: brico help")
+	}
+	usage()
+	return nil
 }
 
 func login(args []string) error {
@@ -283,6 +312,47 @@ func printResponse(body []byte) error {
 		return responseError(response.Error)
 	}
 	return nil
+}
+
+func listToolNames() ([]string, error) {
+	cfg, err := loadRequiredConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := request("GET", cfg.BaseURL, "/api/agent/v1/tools", cfg.Token, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Tools []struct {
+				Name string `json:"name"`
+			} `json:"tools"`
+		} `json:"data"`
+		Error *AgentError `json:"error"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, err
+	}
+	if !response.Success {
+		return nil, responseError(response.Error)
+	}
+
+	names := make([]string, 0, len(response.Data.Tools))
+	for _, tool := range response.Data.Tools {
+		name := strings.TrimSpace(tool.Name)
+		if name == "" {
+			continue
+		}
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+	return names, nil
 }
 
 func responseError(agentError *AgentError) error {
